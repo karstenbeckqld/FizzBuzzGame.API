@@ -13,124 +13,141 @@ namespace FizzBuzzGame.Tests;
 
 public class GameControllerTests
 {
-    private readonly Mock<IGameController> _mockRepo;
+    private readonly Mock<IGameRepository> _mockRepo;
     private readonly GameController _controller;
 
-    public GameControllerTests(FizzBuzzGameContext context)
+    public GameControllerTests()
     {
-        _mockRepo = new Mock<IGameController>();
-        _controller = new GameController(context);
+        _mockRepo = new Mock<IGameRepository>();
+        _controller = new GameController(_mockRepo.Object);
     }
 
-    // [Fact]
-    // public async Task VerifyAnswer_CorrectFizzBuzz_ReturnsTrue()
-    // {
-    //     // Arrange
-    //     var rules = new List<Rule>
-    //     {
-    //         new Rule { Id = 1, Divisor = 3, Text = "Fizz", IsActive = true },
-    //         new Rule { Id = 2, Divisor = 5, Text = "Buzz", IsActive = true }
-    //     };
-    //     _mockRepo.Setup(repo => repo.GetActiveRulesAsync()).ReturnsAsync(rules);
-    //     var request = new UserInputTransferDto { Value = 15, Text = "FizzBuzz" };
-    //
-    //     // Act
-    //     var result = await _controller.VerifyAnswer(request);
-    //
-    //     // Assert
-    //     var okResult = Assert.IsType<OkObjectResult>(result);
-    //     Assert.True((bool)okResult.Value);
-    // }
-    //
-    // [Fact]
-    // public async Task VerifyAnswer_IncorrectAnswer_ReturnsFalse()
-    // {
-    //     // Arrange
-    //     var rules = new List<Rule>
-    //     {
-    //         new Rule { Id = 1, Divisor = 3, Text = "Fizz", IsActive = true }
-    //     };
-    //     _mockRepo.Setup(repo => repo.GetActiveRulesAsync()).ReturnsAsync(rules);
-    //     var request = new UserInputTransferDto { Value = 3, Text = "Buzz" };
-    //
-    //     // Act
-    //     var result = await _controller.VerifyAnswer(request);
-    //
-    //     // Assert
-    //     var okResult = Assert.IsType<OkObjectResult>(result);
-    //     Assert.False((bool)okResult.Value);
-    // }
-    //
-    // [Fact]
-    // public async Task VerifyAnswer_NumberIfNoRule_ReturnsTrue()
-    // {
-    //     // Arrange
-    //     _mockRepo.Setup(repo => repo.GetActiveRulesAsync()).ReturnsAsync(new List<Rule>());
-    //     var request = new UserInputTransferDto { Value = 7, Text = "7" };
-    //
-    //     // Act
-    //     var result = await _controller.VerifyAnswer(request);
-    //
-    //     // Assert
-    //     var okResult = Assert.IsType<OkObjectResult>(result);
-    //     Assert.True((bool)okResult.Value);
-    // }
-    //
-    // [Fact]
-    // public async Task VerifyAnswer_UnsortedCommaSeparatedAnswer_ReturnsTrue()
-    // {
-    //     // Arrange
-    //     var rules = new List<Rule>
-    //     {
-    //         new Rule { Id = 1, Divisor = 3, Text = "Fizz", IsActive = true },
-    //         new Rule { Id = 2, Divisor = 5, Text = "Buzz", IsActive = true }
-    //     };
-    //     _mockRepo.Setup(repo => repo.GetActiveRulesAsync()).ReturnsAsync(rules);
-    //     var request = new UserInputTransferDto { Value = 15, Text = "Buzz,Fizz" }; // Unsorted, still valid
-    //
-    //     // Act
-    //     var result = await _controller.VerifyAnswer(request);
-    //
-    //     // Assert
-    //     var okResult = Assert.IsType<OkObjectResult>(result);
-    //     Assert.True((bool)okResult.Value);
-    // }
-    //
-    // [Fact]
-    // public async Task VerifyAnswer_ExtraWhitespaceInAnswer_ReturnsTrue()
-    // {
-    //     // Arrange
-    //     var rules = new List<Rule>
-    //     {
-    //         new Rule { Id = 1, Divisor = 3, Text = "Fizz", IsActive = true }
-    //     };
-    //     _mockRepo.Setup(repo => repo.GetActiveRulesAsync()).ReturnsAsync(rules);
-    //     var request = new UserInputTransferDto { Value = 3, Text = " Fizz " }; // Extra whitespace
-    //
-    //     // Act
-    //     var result = await _controller.VerifyAnswer(request);
-    //
-    //     // Assert
-    //     var okResult = Assert.IsType<OkObjectResult>(result);
-    //     Assert.True((bool)okResult.Value);
-    // }
-    //
-    // [Fact]
-    // public async Task VerifyAnswer_EmptyAnswerWithRules_ReturnsFalse()
-    // {
-    //     // Arrange
-    //     var rules = new List<Rule>
-    //     {
-    //         new Rule { Id = 1, Divisor = 3, Text = "Fizz", IsActive = true }
-    //     };
-    //     _mockRepo.Setup(repo => repo.GetActiveRulesAsync()).ReturnsAsync(rules);
-    //     var request = new UserInputTransferDto { Value = 3, Text = "" }; // Empty answer
-    //
-    //     // Act
-    //     var result = await _controller.VerifyAnswer(request);
-    //
-    //     // Assert
-    //     var okResult = Assert.IsType<OkObjectResult>(result);
-    //     Assert.False((bool)okResult.Value);
-    // }
+    [Fact]
+    public Task GetRandomRule_ReturnsNumberBetween1And100()
+    {
+        // Arrange
+        _mockRepo.Setup(repo => repo.GetRandomNumber()).Returns(42);
+
+        // Act
+        var result = _controller.GetRandomRule();
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var value = Assert.IsType<int>(okResult.Value);
+        Assert.InRange(value, 1, 1000);
+        _mockRepo.Verify(repo => repo.GetRandomNumber(), Times.Once());
+        return Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task VerifyAnswer_CorrectAnswerWithRules_ReturnsTrue()
+    {
+        // Arrange
+        var request = new UserInputTransferDto { Value = 15, Text = "FizzBuzz" };
+        _mockRepo.Setup(repo => repo.VerifyAnswer(request)).ReturnsAsync(true);
+
+        // Act
+        var result = await _controller.VerifyAnswer(request);
+
+        // Assert
+        var actionResult = Assert.IsType<ActionResult<bool>>(result);
+        var okResult = Assert.IsType<OkObjectResult>(actionResult.Result);
+        var value = Assert.IsType<bool>(okResult.Value);
+        Assert.True(value);
+        _mockRepo.Verify(repo => repo.VerifyAnswer(request), Times.Once());
+    }
+
+    [Fact]
+    public async Task VerifyAnswer_CorrectAnswerNoRulesApply_ReturnsTrue()
+    {
+        // Arrange
+        var request = new UserInputTransferDto { Value = 7, Text = "7" };
+        _mockRepo.Setup(repo => repo.VerifyAnswer(request)).ReturnsAsync(true);
+
+        // Act
+        var result = await _controller.VerifyAnswer(request);
+
+        // Assert
+        var actionResult = Assert.IsType<ActionResult<bool>>(result);
+        var okResult = Assert.IsType<OkObjectResult>(actionResult.Result);
+        var value = Assert.IsType<bool>(okResult.Value);
+        Assert.True(value);
+        _mockRepo.Verify(repo => repo.VerifyAnswer(request), Times.Once());
+    }
+
+    [Fact]
+    public async Task VerifyAnswer_IncorrectAnswer_ReturnsFalse()
+    {
+        // Arrange
+        var request = new UserInputTransferDto { Value = 15, Text = "Fizz" };
+        _mockRepo.Setup(repo => repo.VerifyAnswer(request)).ReturnsAsync(false);
+
+        // Act
+        var result = await _controller.VerifyAnswer(request);
+
+        // Assert
+        var actionResult = Assert.IsType<ActionResult<bool>>(result);
+        var okResult = Assert.IsType<OkObjectResult>(actionResult.Result);
+        var value = Assert.IsType<bool>(okResult.Value);
+        Assert.False(value);
+        _mockRepo.Verify(repo => repo.VerifyAnswer(request), Times.Once());
+    }
+
+    [Fact]
+    public async Task VerifyAnswer_NullInput_ReturnsBadRequest()
+    {
+        // Arrange
+        UserInputTransferDto request = null;
+        _mockRepo.Setup(repo => repo.VerifyAnswer(request))
+            .ReturnsAsync(new BadRequestObjectResult(new { Message = "Input cannot be null or empty." }));
+
+        // Act
+        var result = await _controller.VerifyAnswer(request);
+
+        // Assert
+        var actionResult = Assert.IsType<ActionResult<bool>>(result);
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(actionResult.Result);
+        var error = badRequestResult.Value as dynamic;
+        Assert.NotNull(error);
+        Assert.Equal("Input cannot be null or empty.", badRequestResult.Value);
+        _mockRepo.Verify(repo => repo.VerifyAnswer(request), Times.Once());
+    }
+
+    [Fact]
+    public async Task VerifyAnswer_EmptyText_ReturnsBadRequest()
+    {
+        // Arrange
+        var request = new UserInputTransferDto { Value = 15, Text = "" };
+        _mockRepo.Setup(repo => repo.VerifyAnswer(request))
+            .ReturnsAsync(new ArgumentException(new { Message = "Input cannot be null or empty." }));
+
+        // Act
+        var result = await _controller.VerifyAnswer(request);
+
+        // Assert
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var error = badRequestResult.Value as dynamic;
+        Assert.NotNull(error);
+        Assert.Equal("Input cannot be null or empty.", error.Message.ToString());
+        _mockRepo.Verify(repo => repo.VerifyAnswer(request), Times.Once());
+    }
+    
+    [Fact]
+    public async Task VerifyAnswer_NegativeValue_ReturnsBadRequest()
+    {
+        // Arrange
+        var request = new UserInputTransferDto { Value = -15, Text = "Fizz" };
+        _mockRepo.Setup(repo => repo.VerifyAnswer(request)).ReturnsAsync(new BadRequestObjectResult(new { Message = "Value must be positive." }));
+
+        // Act
+        var result = await _controller.VerifyAnswer(request);
+
+        // Assert
+        var actionResult = Assert.IsType<ActionResult<bool>>(result);
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(actionResult.Result);
+        var error = badRequestResult.Value as dynamic;
+        Assert.NotNull(error);
+        Assert.Equal("Value must be positive.", badRequestResult.Value);
+        _mockRepo.Verify(repo => repo.VerifyAnswer(request), Times.Once());
+    }
 }

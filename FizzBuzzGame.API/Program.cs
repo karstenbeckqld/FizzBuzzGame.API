@@ -17,7 +17,7 @@ builder.Services.AddLogging();
 
 // Let the app know about the GameManager, RulesManager, ILogger and other required services.
 builder.Services.AddScoped<IRuleRepository<Rule, int>, RulesManager>();
-builder.Services.AddScoped<IGameController>();
+builder.Services.AddScoped<IGameRepository, GameManager>();
 builder.Services.AddSingleton<ILogger>(options =>
     options
         .GetRequiredService<ILoggerFactory>()
