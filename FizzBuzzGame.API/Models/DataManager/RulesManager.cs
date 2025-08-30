@@ -7,11 +7,7 @@ namespace FizzBuzzGame.API.Models.DataManager;
 
 public class RulesManager(FizzBuzzGameContext context) : IRuleRepository<Rule, int>
 {
-    public FizzBuzzGameContext GetContext()
-    {
-        return context;
-    }
-
+    
     public async Task<List<Rule>> GetAllRulesAsync()
     {
         return await context.Rules.ToListAsync();

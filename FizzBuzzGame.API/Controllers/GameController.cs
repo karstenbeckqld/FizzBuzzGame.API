@@ -32,13 +32,15 @@ public class GameController(FizzBuzzGameContext context) : ControllerBase
     {
         Console.WriteLine(request.Value);
         Console.WriteLine(request.Text);
+
+        var result = false;
         
         var activeRules = await context.Rules
             .Where(r => r.IsActive)
             .OrderBy(r => r.Id)
             .ToListAsync();
 
-        string expected = "";
+        var expected = "";
 
         foreach (var rule in activeRules)
         {
@@ -48,8 +50,9 @@ public class GameController(FizzBuzzGameContext context) : ControllerBase
             }
         }
         
-        expected = string.IsNullOrEmpty(expected) ? request.Value.ToString() : expected;
-        Console.WriteLine(expected);
-        return Ok(expected == request.Text);
+        result = !string.IsNullOrEmpty(expected);
+        //expected = string.IsNullOrEmpty(expected) ? request.Value.ToString() : expected;
+        Console.WriteLine(result);
+        return Ok(result);
     }
 }
