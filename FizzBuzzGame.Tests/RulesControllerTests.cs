@@ -35,7 +35,8 @@ public class RulesControllerTests
         var result = await _controller.GetRules();
 
         // Assert
-        var okResult = Assert.IsType<OkObjectResult>(result);
+        var actionResult = Assert.IsType<ActionResult<IEnumerable<Rule>>>(result);
+        var okResult = Assert.IsType<OkObjectResult>(actionResult.Result);
         var returnRules = Assert.IsType<List<Rule>>(okResult.Value);
         Assert.Equal(2, returnRules.Count);
         Assert.Contains(returnRules, r => r.Id == 1 && r.Text == "Fizz");
@@ -57,7 +58,8 @@ public class RulesControllerTests
         var result = await _controller.GetActiveRules();
 
         // Assert
-        var okResult = Assert.IsType<OkObjectResult>(result);
+        var actionResult = Assert.IsType<ActionResult<IEnumerable<Rule>>>(result);
+        var okResult = Assert.IsType<OkObjectResult>(actionResult.Result);
         var returnRules = Assert.IsType<List<Rule>>(okResult.Value);
         Assert.Single(returnRules);
         Assert.Equal("Fizz", returnRules[0].Text);
@@ -75,7 +77,8 @@ public class RulesControllerTests
         var result = await _controller.AddRule(rule);
 
         // Assert
-        var createdResult = Assert.IsType<CreatedAtActionResult>(result);
+        var actionResult = Assert.IsType<ActionResult<Rule>>(result);
+        var createdResult = Assert.IsType<CreatedAtActionResult>(actionResult.Result);
         var returnRule = Assert.IsType<Rule>(createdResult.Value);
         Assert.Equal(rule, returnRule);
         Assert.Equal(nameof(_controller.GetRule), createdResult.ActionName);
@@ -111,10 +114,9 @@ public class RulesControllerTests
         var result = await _controller.AddRule(rule);
 
         // Assert
-        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-        var error = badRequestResult.Value as dynamic;
-        Assert.NotNull(error);
-        Assert.Equal("Divisor must be a positive number.", error.Message.ToString());
+        var actionResult = Assert.IsType<ActionResult<Rule>>(result);
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(actionResult.Result);
+        Assert.Equal("Divisor must be a positive number.", badRequestResult.Value);
         _mockRepo.Verify(repo => repo.AddRuleAsync(It.IsAny<Rule>()), Times.Never());
     }
 
@@ -129,7 +131,8 @@ public class RulesControllerTests
         var result = await _controller.GetRule(1);
 
         // Assert
-        var okResult = Assert.IsType<OkObjectResult>(result);
+        var actionResult = Assert.IsType<ActionResult<Rule>>(result);
+        var okResult = Assert.IsType<OkObjectResult>(actionResult.Result);
         var returnRule = Assert.IsType<Rule>(okResult.Value);
         Assert.Equal(rule, returnRule);
     }
@@ -144,7 +147,8 @@ public class RulesControllerTests
         var result = await _controller.GetRule(1);
 
         // Assert
-        Assert.IsType<NotFoundResult>(result);
+        var actionResult = Assert.IsType<ActionResult<Rule>>(result);
+        Assert.IsType<NotFoundResult>(actionResult.Result);
     }
 
     [Fact]
@@ -180,7 +184,7 @@ public class RulesControllerTests
         var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
         var error = badRequestResult.Value as dynamic;
         Assert.NotNull(error);
-        Assert.Equal("Divisor must be a positive number.", error.Message.ToString());
+        Assert.Equal("Divisor must be a positive number.", badRequestResult.Value);
         _mockRepo.Verify(repo => repo.UpdateRuleAsync(It.IsAny<Rule>()), Times.Never());
     }
 
@@ -206,10 +210,11 @@ public class RulesControllerTests
         var rule = new Rule { Id = 1, Divisor = 3, Text = "Fizz", IsActive = true };
         var remainingRules = new List<Rule>
         {
-            new Rule { Id = 2, Divisor = 5, Text = "Buzz", IsActive = true }
+            new Rule { Id = 2, Divisor = 5, Text = "Buzz", IsActive = true },
+            new Rule { Id = 3, Divisor = 7, Text = "Boo", IsActive = true } // Added a second rule
         };
         _mockRepo.Setup(repo => repo.GetRuleByIdAsync(1)).ReturnsAsync(rule);
-        _mockRepo.Setup(repo => repo.GetRuleCountAsync()).ReturnsAsync(2);
+        _mockRepo.Setup(repo => repo.GetRuleCountAsync()).ReturnsAsync(3); // Initial count: 3 rules
         _mockRepo.Setup(repo => repo.GetAllRulesAsync()).ReturnsAsync(remainingRules);
         _mockRepo.Setup(repo => repo.DeleteRuleAsync(1)).Returns(Task.CompletedTask);
 
@@ -217,7 +222,7 @@ public class RulesControllerTests
         var result = await _controller.DeleteRule(1);
 
         // Assert
-        Assert.IsType<NoContentResult>(result);
+        var noContentResult = Assert.IsType<NoContentResult>(result);
         _mockRepo.Verify(repo => repo.DeleteRuleAsync(1), Times.Once());
         _mockRepo.Verify(repo => repo.UpdateRuleAsync(It.IsAny<Rule>()), Times.Never());
     }
@@ -235,9 +240,7 @@ public class RulesControllerTests
 
         // Assert
         var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-        var error = badRequestResult.Value as dynamic;
-        Assert.NotNull(error);
-        Assert.Equal("The game must have at least one rule.", error.Message.ToString());
+        Assert.Equal("The game must have at least one rule.", badRequestResult.Value);
         _mockRepo.Verify(repo => repo.DeleteRuleAsync(It.IsAny<int>()), Times.Never());
     }
 
