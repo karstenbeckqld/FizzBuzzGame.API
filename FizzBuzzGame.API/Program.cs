@@ -1,5 +1,8 @@
+using FizzBuzzGame.API.Controllers;
 using FizzBuzzGame.API.Data;
+using FizzBuzzGame.API.Models;
 using FizzBuzzGame.API.Models.DataManager;
+using FizzBuzzGame.API.Models.Repository;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,7 +16,8 @@ builder.Services.AddSqlite<FizzBuzzGameContext>(connectionString);
 builder.Services.AddLogging();
 
 // Let the app know about the GameManager, RulesManager, ILogger and other required services.
-builder.Services.AddScoped<RulesManager>();
+builder.Services.AddScoped<IRuleRepository<Rule, int>, RulesManager>();
+builder.Services.AddScoped<IGameController>();
 builder.Services.AddSingleton<ILogger>(options =>
     options
         .GetRequiredService<ILoggerFactory>()
@@ -29,9 +33,9 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAllOrigins", builder =>
     {
-        builder.AllowAnyOrigin()    // Allow all origins (*)
-            .AllowAnyMethod()       // Allow all HTTP methods: GET, POST, etc.
-            .AllowAnyHeader();      // Allow all headers (e.g., Content-Type)
+        builder.AllowAnyOrigin() // Allow all origins (*)
+            .AllowAnyMethod() // Allow all HTTP methods: GET, POST, etc.
+            .AllowAnyHeader(); // Allow all headers (e.g., Content-Type)
     });
 });
 

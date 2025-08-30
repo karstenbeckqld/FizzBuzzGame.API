@@ -1,12 +1,13 @@
 using FizzBuzzGame.API.Models;
 using FizzBuzzGame.API.Models.DataManager;
+using FizzBuzzGame.API.Models.Repository;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FizzBuzzGame.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class RulesController(RulesManager rulesManager) : ControllerBase
+public class RulesController(IRuleRepository<Rule, int> rulesRepository) : ControllerBase
 {
     // There are two rule getting methods, GetRules returns all rules from the database. This endpoint is required
     // for the admin functionality.
@@ -14,16 +15,16 @@ public class RulesController(RulesManager rulesManager) : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Rule>>> GetRules()
     {
-        return Ok(await rulesManager.GetAllRulesAsync());
+        return Ok(await rulesRepository.GetAllRulesAsync());
     }
 
-    // The 'active' endopoint only returns rules that are active to the game page. There is no need for the game to
+    // The 'active' endpoint only returns rules that are active to the game page. There is no need for the game to
     // retrieve all available rules.
     // GET api/rules/active
     [HttpGet("active")]
     public async Task<ActionResult<IEnumerable<Rule>>> GetActiveRules()
     {
-        return Ok(await rulesManager.GetActiveRulesAsync());
+        return Ok(await rulesRepository.GetActiveRulesAsync());
     }
     
     // The POST api/rules endpoint saves a new rule to the database.
@@ -33,7 +34,7 @@ public class RulesController(RulesManager rulesManager) : ControllerBase
         if (rule.Divisor <= 0) 
             return BadRequest("Divisor must be a positive number.");
         
-        await rulesManager.AddRuleAsync(rule);
+        await rulesRepository.AddRuleAsync(rule);
         return CreatedAtAction(nameof(GetRule), new { id = rule.Id }, rule);
     }
 
@@ -43,7 +44,7 @@ public class RulesController(RulesManager rulesManager) : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<Rule>> GetRule(int id)
     {
-        var rule = await rulesManager.GetRuleByIdAsync(id);
+        var rule = await rulesRepository.GetRuleByIdAsync(id);
         if (rule == null) return NotFound();
         return Ok(rule);
     }
@@ -56,14 +57,14 @@ public class RulesController(RulesManager rulesManager) : ControllerBase
         if (updatedRule.Divisor <= 0) 
             return BadRequest("Divisor must be a positive number.");
         
-        var rule = await rulesManager.GetRuleByIdAsync(id);
+        var rule = await rulesRepository.GetRuleByIdAsync(id);
         
         if (rule == null) return NotFound();
 
         rule.Divisor = updatedRule.Divisor;
         rule.Text = updatedRule.Text;
         rule.IsActive = updatedRule.IsActive;
-        await rulesManager.UpdateRuleAsync(rule);
+        await rulesRepository.UpdateRuleAsync(rule);
         return NoContent();
     }
 
@@ -72,24 +73,24 @@ public class RulesController(RulesManager rulesManager) : ControllerBase
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteRule(int id)
     {
-        var rule = await rulesManager.GetRuleByIdAsync(id);
+        var rule = await rulesRepository.GetRuleByIdAsync(id);
         if (rule == null) return NotFound();
         
         // Now we check if the deletion would left us with no rules (validates requirements)
-        if (await rulesManager.GetRuleCountAsync() <= 1)
+        if (await rulesRepository.GetRuleCountAsync() <= 1)
             return BadRequest("The game must have at least one rule.");
         
         // If more than one rule is left, we can go ahead and delete the rule.
-        await rulesManager.DeleteRuleAsync(id);
+        await rulesRepository.DeleteRuleAsync(id);
 
         // After the deletion we now check if there are any inactive rules left and set them active.
-        var remainingRules = await rulesManager.GetAllRulesAsync();
+        var remainingRules = await rulesRepository.GetAllRulesAsync();
 
         if (remainingRules.Count == 1)
         {
             var lastRule =  remainingRules.First();
             lastRule.IsActive = true;
-            await rulesManager.UpdateRuleAsync(lastRule);
+            await rulesRepository.UpdateRuleAsync(lastRule);
         }
         
         return NoContent();

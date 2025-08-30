@@ -17,7 +17,7 @@ namespace FizzBuzzGame.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class GameController(FizzBuzzGameContext context) : ControllerBase
+public class GameController(FizzBuzzGameContext context) : ControllerBase, IGameController
 {
     [HttpGet("random")]
     public ActionResult<int> GetRandomRule()
