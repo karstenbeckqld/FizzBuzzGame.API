@@ -5,6 +5,11 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FizzBuzzGame.API.Controllers;
 
+/*
+ The RulesController handles all relevant requests regarding the game rules. It
+ - Mediates all CRUD functionality between the Client and the Rules Manager -> The Database
+ */
+
 [ApiController]
 [Route("api/[controller]")]
 public class RulesController(IRuleRepository<Rule, int> rulesRepository) : ControllerBase

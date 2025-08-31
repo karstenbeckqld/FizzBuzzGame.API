@@ -79,22 +79,6 @@ app.MapControllers();
 // Run a database migration when the application starts, to ensure the correct schema is in place.
 await app.MigrateDbAsync();
 
-// Seed data programmatically
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-    try
-    {
-        await SeedData.Initialize(services);
-    }
-    catch (Exception e)
-    {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(e, "Error while seeding database");
-        throw;
-    }
-}
-
 // Enable CORS Middleware
 app.UseCors("AllowAllOrigins");
 

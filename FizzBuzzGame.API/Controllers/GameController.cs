@@ -4,6 +4,13 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FizzBuzzGame.API.Controllers;
 
+/*
+ The GameController handles all relevant requests regarding the game play. It
+ - Passes the randomly generated Number (between 1 and 100) to the frontend.
+ - It receives the user input.
+ - It arranges for ending the game. 
+ */
+
 [ApiController]
 [Route("api/[controller]")]
 public class GameController(IGameRepository repository) : ControllerBase

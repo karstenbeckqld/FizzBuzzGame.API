@@ -1,5 +1,9 @@
 namespace FizzBuzzGame.API.Dtos;
 
+/*
+ * A data transfer object to store the game result for display.
+ */
+
 public class GameResultDto
 {
     public int Value { get; set; }

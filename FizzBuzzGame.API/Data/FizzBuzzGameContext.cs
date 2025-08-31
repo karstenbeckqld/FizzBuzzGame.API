@@ -1,7 +1,6 @@
 using FizzBuzzGame.API.Models;
 using Microsoft.EntityFrameworkCore;
 
-
 namespace FizzBuzzGame.API.Data;
 
 public class FizzBuzzGameContext(DbContextOptions<FizzBuzzGameContext> options) : DbContext(options)
