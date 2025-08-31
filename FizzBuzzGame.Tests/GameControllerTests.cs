@@ -1,153 +1,130 @@
-using Moq;
 using FizzBuzzGame.API.Controllers;
-using FizzBuzzGame.API.Models;
-using FizzBuzzGame.API.Models.Repository;
-using Xunit;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using FizzBuzzGame.API.Data;
 using FizzBuzzGame.API.Dtos;
+using FizzBuzzGame.API.Models;
+using FizzBuzzGame.API.Models.DataManager;
+using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
-namespace FizzBuzzGame.Tests;
-
-public class GameControllerTests
+public class GameControllerTests : IDisposable
 {
-    private readonly Mock<IGameRepository> _mockRepo;
+    private readonly FizzBuzzGameContext _context;
     private readonly GameController _controller;
+    private readonly GameManager _gameManager;
 
     public GameControllerTests()
     {
-        _mockRepo = new Mock<IGameRepository>();
-        _controller = new GameController(_mockRepo.Object);
+        var options = new DbContextOptionsBuilder<FizzBuzzGameContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        _context = new FizzBuzzGameContext(options);
+        _gameManager = new GameManager(_context);
+        _controller = new GameController(_gameManager);
+
+        // Seed test data
+        SeedTestData();
+    }
+
+    private void SeedTestData()
+    {
+        _context.Rules.AddRange(
+            new Rule { Id = 1, Divisor = 3, Text = "Fizz", IsActive = true },
+            new Rule { Id = 2, Divisor = 5, Text = "Buzz", IsActive = true }
+        );
+        _context.SaveChanges();
     }
 
     [Fact]
-    public Task GetRandomRule_ReturnsNumberBetween1And100()
+    public void GetRandomNumber_ShouldReturnOkResultWithNumber()
     {
-        // Arrange
-        _mockRepo.Setup(repo => repo.GetRandomNumber()).Returns(42);
-
         // Act
-        var result = _controller.GetRandomRule();
+        var result = _controller.GetRandomNumber();
 
         // Assert
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var value = Assert.IsType<int>(okResult.Value);
-        Assert.InRange(value, 1, 1000);
-        _mockRepo.Verify(repo => repo.GetRandomNumber(), Times.Once());
-        return Task.CompletedTask;
+        result.Result.Should().BeOfType<OkObjectResult>();
+        var okResult = result.Result as OkObjectResult;
+        okResult.Value.Should().BeOfType<int>();
+        ((int)okResult.Value).Should().BeInRange(1, 100);
     }
 
     [Fact]
-    public async Task VerifyAnswer_CorrectAnswerWithRules_ReturnsTrue()
+    public async Task VerifyAnswer_WithValidRequest_ShouldReturnOkResult()
     {
         // Arrange
-        var request = new UserInputTransferDto { Value = 15, Text = "FizzBuzz" };
-        _mockRepo.Setup(repo => repo.VerifyAnswer(request)).ReturnsAsync(true);
-
-        // Act
-        var result = await _controller.VerifyAnswer(request);
-
-        // Assert
-        var actionResult = Assert.IsType<ActionResult<bool>>(result);
-        var okResult = Assert.IsType<OkObjectResult>(actionResult.Result);
-        var value = Assert.IsType<bool>(okResult.Value);
-        Assert.True(value);
-        _mockRepo.Verify(repo => repo.VerifyAnswer(request), Times.Once());
-    }
-
-    [Fact]
-    public async Task VerifyAnswer_CorrectAnswerNoRulesApply_ReturnsTrue()
-    {
-        // Arrange
-        var request = new UserInputTransferDto { Value = 7, Text = "7" };
-        _mockRepo.Setup(repo => repo.VerifyAnswer(request)).ReturnsAsync(true);
+        var request = new UserInputTransferDto { Value = 3, Text = "Fizz" };
 
         // Act
         var result = await _controller.VerifyAnswer(request);
 
         // Assert
-        var actionResult = Assert.IsType<ActionResult<bool>>(result);
-        var okResult = Assert.IsType<OkObjectResult>(actionResult.Result);
-        var value = Assert.IsType<bool>(okResult.Value);
-        Assert.True(value);
-        _mockRepo.Verify(repo => repo.VerifyAnswer(request), Times.Once());
+        result.Result.Should().BeOfType<OkObjectResult>();
+        var okResult = result.Result as OkObjectResult;
+        okResult.Value.Should().Be(true);
     }
 
     [Fact]
-    public async Task VerifyAnswer_IncorrectAnswer_ReturnsFalse()
+    public async Task VerifyAnswer_WithInvalidRequest_ShouldReturnBadRequest()
     {
         // Arrange
-        var request = new UserInputTransferDto { Value = 15, Text = "Fizz" };
-        _mockRepo.Setup(repo => repo.VerifyAnswer(request)).ReturnsAsync(false);
+        var request = new UserInputTransferDto { Value = 3, Text = null };
 
         // Act
         var result = await _controller.VerifyAnswer(request);
 
         // Assert
-        var actionResult = Assert.IsType<ActionResult<bool>>(result);
-        var okResult = Assert.IsType<OkObjectResult>(actionResult.Result);
-        var value = Assert.IsType<bool>(okResult.Value);
-        Assert.False(value);
-        _mockRepo.Verify(repo => repo.VerifyAnswer(request), Times.Once());
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
     }
 
     [Fact]
-    public async Task VerifyAnswer_NullInput_ReturnsBadRequest()
+    public async Task EndGame_ShouldReturnGameSessionResult()
     {
         // Arrange
-        UserInputTransferDto request = null;
-        _mockRepo.Setup(repo => repo.VerifyAnswer(request))
-            .ReturnsAsync(new BadRequestObjectResult(new { Message = "Input cannot be null or empty." }));
+        await _gameManager.VerifyAnswer(new UserInputTransferDto { Value = 3, Text = "Fizz" });
+        await _gameManager.VerifyAnswer(new UserInputTransferDto { Value = 5, Text = "Buzz" });
 
         // Act
-        var result = await _controller.VerifyAnswer(request);
+        var result = await _controller.EndGame();
 
         // Assert
-        var actionResult = Assert.IsType<ActionResult<bool>>(result);
-        var badRequestResult = Assert.IsType<BadRequestObjectResult>(actionResult.Result);
-        var error = badRequestResult.Value as dynamic;
-        Assert.NotNull(error);
-        Assert.Equal("Input cannot be null or empty.", badRequestResult.Value);
-        _mockRepo.Verify(repo => repo.VerifyAnswer(request), Times.Once());
+        result.Should().NotBeNull();
+        result.Should().BeOfType<GameSessionResultDto>();
+        result.TotalAttempts.Should().Be(2);
+        result.CorrectAnswers.Should().Be(2);
+        result.AccuracyPercentage.Should().Be(100);
+        result.Results.Should().HaveCount(2);
     }
 
     [Fact]
-    public async Task VerifyAnswer_EmptyText_ReturnsBadRequest()
+    public async Task EndGame_WithNoGameData_ShouldReturnEmptyResult()
     {
-        // Arrange
-        var request = new UserInputTransferDto { Value = 15, Text = "" };
-        _mockRepo.Setup(repo => repo.VerifyAnswer(request))
-            .ReturnsAsync(new ArgumentException(new { Message = "Input cannot be null or empty." }));
-
         // Act
-        var result = await _controller.VerifyAnswer(request);
+        var result = await _controller.EndGame();
 
         // Assert
-        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-        var error = badRequestResult.Value as dynamic;
-        Assert.NotNull(error);
-        Assert.Equal("Input cannot be null or empty.", error.Message.ToString());
-        _mockRepo.Verify(repo => repo.VerifyAnswer(request), Times.Once());
+        result.Should().NotBeNull();
+        result.TotalAttempts.Should().Be(0);
+        result.Results.Should().BeEmpty();
     }
-    
+
     [Fact]
-    public async Task VerifyAnswer_NegativeValue_ReturnsBadRequest()
+    public async Task VerifyAnswer_ShouldPersistDataBetweenCalls()
     {
-        // Arrange
-        var request = new UserInputTransferDto { Value = -15, Text = "Fizz" };
-        _mockRepo.Setup(repo => repo.VerifyAnswer(request)).ReturnsAsync(new BadRequestObjectResult(new { Message = "Value must be positive." }));
+        // Arrange & Act
+        await _controller.VerifyAnswer(new UserInputTransferDto { Value = 3, Text = "Fizz" });
+        await _controller.VerifyAnswer(new UserInputTransferDto { Value = 7, Text = "7" });
 
-        // Act
-        var result = await _controller.VerifyAnswer(request);
+        // Assert - Check that data persisted in database
+        var storedResults = await _context.GameResults.CountAsync();
+        storedResults.Should().Be(2);
 
-        // Assert
-        var actionResult = Assert.IsType<ActionResult<bool>>(result);
-        var badRequestResult = Assert.IsType<BadRequestObjectResult>(actionResult.Result);
-        var error = badRequestResult.Value as dynamic;
-        Assert.NotNull(error);
-        Assert.Equal("Value must be positive.", badRequestResult.Value);
-        _mockRepo.Verify(repo => repo.VerifyAnswer(request), Times.Once());
+        var endGameResult = await _controller.EndGame();
+        endGameResult.TotalAttempts.Should().Be(2);
+    }
+
+    public void Dispose()
+    {
+        _context.Dispose();
     }
 }

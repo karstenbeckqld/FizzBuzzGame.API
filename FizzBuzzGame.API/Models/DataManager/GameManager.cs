@@ -1,14 +1,15 @@
-using FizzBuzzGame.API.Controllers;
 using FizzBuzzGame.API.Data;
 using FizzBuzzGame.API.Dtos;
 using FizzBuzzGame.API.Models.Repository;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace FizzBuzzGame.API.Models.DataManager;
 
 public class GameManager(FizzBuzzGameContext context) : IGameRepository
 {
+    // Generate a static sessionId per instance of GameManager 
+    private static readonly string SessionId = Guid.NewGuid().ToString();
+
     public int GetRandomNumber()
     {
         var random = new Random();
@@ -40,9 +41,81 @@ public class GameManager(FizzBuzzGameContext context) : IGameRepository
         {
             expected = request.Value.ToString();
         }
-        
 
         // Compare user's input to the expected output (case-insensitive)
-        return string.Equals(request.Text, expected, StringComparison.OrdinalIgnoreCase);
+        var result = string.Equals(request.Text, expected, StringComparison.OrdinalIgnoreCase);
+
+        // Store the result
+        var gameResult = new GameResult
+        {
+            Value = request.Value,
+            UserInput = request.Text,
+            ExpectedOutput = expected,
+            IsCorrect = result,
+            Timestamp = DateTime.UtcNow,
+            SessionId = GetSessionId(),
+        };
+
+        context.GameResults.Add(gameResult);
+        await context.SaveChangesAsync();
+
+        Console.WriteLine($"Storing: " +
+                          $"Value={gameResult.Value}, " +
+                          $"UserInput='{gameResult.UserInput}', " +
+                          $"Expected='{gameResult.ExpectedOutput}', " +
+                          $"Correct={gameResult.IsCorrect}");
+
+        return result;
+    }
+
+    public async Task<GameSessionResultDto> EndGameAndGetResults()
+    {
+        var results = await GetGameResultsFromDatabase();
+
+        // Not bloat the database, we delete the results after they've been retrieved.
+        var sessionId = GetSessionId();
+        var sessionResults = await context.GameResults
+            .Where(gr => gr.SessionId == sessionId)
+            .ToListAsync();
+
+        context.GameResults.RemoveRange(sessionResults);
+        await context.SaveChangesAsync();
+
+        // Now we return the results here.
+        return results;
+    }
+
+    private async Task<GameSessionResultDto> GetGameResultsFromDatabase()
+    {
+        var sessionId = GetSessionId();
+
+        var sessionResults = await context.GameResults
+            .Where(gr => gr.SessionId == sessionId)
+            .OrderBy(gr => gr.Timestamp)
+            .ToListAsync();
+
+        var totalAttempts = sessionResults.Count;
+        var correctAnswers = sessionResults.Count(r => r.IsCorrect);
+
+        return new GameSessionResultDto
+        {
+            SessionId = GetSessionId(),
+            Results = sessionResults.Select(sr => new GameResultDto
+            {
+                Value = sr.Value,
+                UserInput = sr.UserInput,
+                ExpectedOutput = sr.ExpectedOutput,
+                IsCorrect = sr.IsCorrect,
+                Timestamp = sr.Timestamp
+            }).ToList(),
+            TotalAttempts = totalAttempts,
+            CorrectAnswers = correctAnswers,
+            AccuracyPercentage = totalAttempts > 0 ? (double)correctAnswers / totalAttempts * 100 : 0
+        };
+    }
+
+    private static string GetSessionId()
+    {
+        return SessionId;
     }
 }

@@ -7,4 +7,5 @@ public interface IGameRepository
 {
     int GetRandomNumber();
     Task<bool> VerifyAnswer([FromBody] UserInputTransferDto request);
+    Task<GameSessionResultDto> EndGameAndGetResults();
 }

@@ -7,6 +7,7 @@ namespace FizzBuzzGame.API.Data;
 public class FizzBuzzGameContext(DbContextOptions<FizzBuzzGameContext> options) : DbContext(options)
 {
     public DbSet<Rule> Rules { get; set; }
+    public DbSet<GameResult> GameResults { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
